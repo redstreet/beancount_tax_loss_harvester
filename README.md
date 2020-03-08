@@ -4,7 +4,6 @@ Tax loss harvester for Beancount personal finance software
 Reports the set of lots that can be tax loss harvested from your beancount input file.
 Example:
 
-
 ```
 $ ./tlh.py ~/accounts/accounts.beancount -a "Assets:MyInvestments"
 
@@ -20,11 +19,16 @@ HTrade-Second      77.786  BETAX      4437.66   2019-08-15   *       28
 
 Wash sales: recent purchase (within 30 days):
 ----------  ------------ ------- -------  -----
-2020-01-25  HTrade-Third   75.39 6038.77  BETAX
+2020-01-25  HTrade-Third   75.39  100.00  BETAX
 ----------  -----------  ------- -------  -----
 ```
 
-Features:
+The example above shows that 1697 USD of losses can be harvested by selling the rows
+listed. However, 100 USD of that would be considered a wash sale and will not be
+allowable. It also shows the account and quantities of each commodity to sell total sale
+proceeds (20596.97 USD) if all the recommended lots were sold.
+
+### Features
 - reports on possible wash sales (US) in the second table above
 - optionally set a loss threshold. Useful to filter out minor TLH opportunities
 - reports the total number of sale transactions needed
