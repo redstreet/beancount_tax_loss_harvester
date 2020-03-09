@@ -25,7 +25,6 @@ def init_entries(beancount_file, args):
     argsmap = SimpleNamespace(**args)
 
 def query_recently_bought(ticker, wash_pattern, wash_pattern_exclude):
-
     wash_pattern_sql = ''
     wash_pattern_exclude_sql = ''
     if wash_pattern:
@@ -43,7 +42,7 @@ def query_recently_bought(ticker, wash_pattern, wash_pattern_exclude):
       GROUP BY date,payee,description,LEAF(account),currency
       ORDER BY date DESC
       '''.format(**locals())
-    rtypes, rrows = query.run_query(entries, options_map, sql, numberify=True)
+    rtypes, rrows = query.run_query(entries, options_map, sql)
     return rtypes, rrows
 
 def tlh(beancount_file,
@@ -60,29 +59,18 @@ def tlh(beancount_file,
     sql = """
     SELECT LEAF(account),
         units(sum(position)) as units,
-        cost_number as cost,
-        first(getprice(currency, cost_currency)) as price,
-        cost(sum(position)) as book_value,
         value(sum(position)) as market_value,
+        cost(sum(position)) as book_value,
         cost_date as acquisition_date
       WHERE account_sortkey(account) ~ "^[01]" AND
         account ~ "{accounts_pattern}"
       GROUP BY LEAF(account), cost_date, currency, cost_currency, cost_number, account_sortkey(account)
       ORDER BY account_sortkey(account), currency, cost_date
     """.format(**locals())
-    rtypes, rrows = query.run_query(entries, options_map, sql, numberify=True)
+    rtypes, rrows = query.run_query(entries, options_map, sql)
 
-    # Figure out the columns of interest
-    bv_col = 0
-    mv_col = 0
-    for c, label in enumerate(rtypes):
-        if label[0] == 'book_value (USD)':
-            bv_col = c
-        if label[0] == 'market_value (USD)':
-            mv_col = c
-    if not bv_col or not mv_col:
-        print("Error: bv_col/mv_col not set")
-        import pdb; pdb.set_trace()
+    def val(inv):
+        return inv.get_only_position().units.number
 
     # Find rows where market value is not none, and is lower than book value by a threshold
     # try:
@@ -93,31 +81,32 @@ def tlh(beancount_file,
         # print("Couldn't load from pickle cache")
         to_sell = []
         recently_bought = {}
+        unique_txns = set()
         for row in rrows:
-            if row[mv_col] and row[mv_col] - row[bv_col] < -loss_threshold:
-                loss = int(row[bv_col] - row[mv_col])
-                for uc, ulabels in enumerate(rtypes):
-                    if 'units' in ulabels[0] and row[uc]:
-                        ticker = ulabels[0].replace('units ', '')[1:-1]
-                        qty = row[uc]
+            if row.market_value.get_only_position() and \
+             (val(row.market_value) - val(row.book_value) < -loss_threshold):
+                loss = int(val(row.book_value) - val(row.market_value))
+                ticker = row.units.get_only_position().units.currency
+
                 recent = recently_bought.get(ticker, None)
                 if not recent:
                     recent = query_recently_bought(ticker, wash_pattern, wash_pattern_exclude)
                     recently_bought[ticker] = recent
                 wash = '*' if len(recent[1]) else ''
-                to_sell.append((row[0], qty, ticker, row[mv_col], row[-1], wash, loss))
+
+                to_sell.append((row.leaf_account, row.units, row.market_value, row.acquisition_date, wash, loss))
+                unique_txns.add(row.leaf_account + '*' + ticker)
 
         # with open('.tlh.pickle', 'wb') as fh:
         #     pickle.dump((to_sell, recently_bought), fh, protocol=pickle.HIGHEST_PROTOCOL)
 
 
     # Pretty print TLH recommendation table
-    unique_txns = set(r[0] + r[2] for r in to_sell)
     total_txns = '{} ({} sets)'.format(len(to_sell), len(unique_txns))
-    headers = ['Account', 'Qty', 'Ticker', 'Market', 'Purchased', 'W', 'Loss']
+    headers = ['Account', 'Units', 'Market', 'Purchased', 'W', 'Loss']
     total_loss = sum(i[-1] for i in to_sell)
-    total_mv = sum(i[3] for i in to_sell)
-    footer = [(total_txns, '0.0', '', total_mv, '', '', total_loss)]
+    total_mv = sum(i[2].get_only_position().units.number for i in to_sell)
+    footer = [(total_txns, '0.0', total_mv, '', '', total_loss)]
     print(tabulate.tabulate(to_sell + footer, headers=headers))
 
 
