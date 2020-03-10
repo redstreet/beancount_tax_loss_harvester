@@ -24,20 +24,16 @@ def init_entries(beancount_file, args):
     entries, _, options_map = loader.load_file(beancount_file)
     argsmap = SimpleNamespace(**args)
 
-def query_recently_bought(ticker, wash_pattern, wash_pattern_exclude):
+def query_recently_bought(ticker, wash_pattern):
     wash_pattern_sql = ''
-    wash_pattern_exclude_sql = ''
     if wash_pattern:
         wash_pattern_sql = 'AND account ~ "{}"'.format(wash_pattern)
-    if wash_pattern_exclude:
-        wash_pattern_exclude_sql = 'AND NOT STR(account) ~ "{}"'.format(wash_pattern_exclude)
 
     sql = '''
     SELECT date,LEAF(account),sum(number),cost(sum(position)),currency
       WHERE
-        date >= DATE_ADD(TODAY(), -31)
+        date >= DATE_ADD(TODAY(), -30)
         {wash_pattern_sql}
-        {wash_pattern_exclude_sql}
         AND currency = "{ticker}"
       GROUP BY date,payee,description,LEAF(account),currency
       ORDER BY date DESC
@@ -49,7 +45,6 @@ def tlh(beancount_file,
         accounts_pattern='',
         loss_threshold=10,
         wash_pattern = '',
-        wash_pattern_exclude = '',
         ):
     '''Finds opportunities for tax loss harvesting in a beancount file'''
     global argsmap
@@ -63,7 +58,8 @@ def tlh(beancount_file,
         cost(sum(position)) as book_value,
         cost_date as acquisition_date
       WHERE account_sortkey(account) ~ "^[01]" AND
-        account ~ "{accounts_pattern}"
+        account ~ "{accounts_pattern}" AND
+        date <= DATE_ADD(TODAY(), -30)
       GROUP BY LEAF(account), cost_date, currency, cost_currency, cost_number, account_sortkey(account)
       ORDER BY account_sortkey(account), currency, cost_date
     """.format(**locals())
@@ -90,7 +86,7 @@ def tlh(beancount_file,
 
                 recent = recently_bought.get(ticker, None)
                 if not recent:
-                    recent = query_recently_bought(ticker, wash_pattern, wash_pattern_exclude)
+                    recent = query_recently_bought(ticker, wash_pattern)
                     recently_bought[ticker] = recent
                 wash = '*' if len(recent[1]) else ''
 
