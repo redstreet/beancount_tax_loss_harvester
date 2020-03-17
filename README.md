@@ -1,6 +1,9 @@
 # beancount_tax_loss_harvester
 Tax loss harvester for Beancount personal finance software
 
+# This command line client has now been been folded into the [fava extension](https://github.com/redstreet/fava_tax_loss_harvester) and will no longer be maintained here.
+
+
 Reports the set of lots that can be tax loss harvested from your beancount input file.
 Example:
 
@@ -36,6 +39,10 @@ proceeds (20596.97 USD) if all the recommended lots were sold.
   - account patterns to search for wash-sale creating purchases
   - account patterns to exclude for wash-sale creating purchases (eg: tax deferred
     accounts)
+
+## Installation
+Requires python3, argcomplete, and tabulate
+```pip3 install argcomplete tabulate```
 
 TODO:
 - show if a loss generated would be long term or short term
