@@ -1,7 +1,7 @@
 # beancount_tax_loss_harvester
 Tax loss harvester for Beancount personal finance software
 
-# This command line client has now been been folded into the [fava extension](https://github.com/redstreet/fava_tax_loss_harvester) and will no longer be maintained here.
+# This command line client has now been been folded into the [fava extension](https://github.com/redstreet/fava_investor) and will no longer be maintained here.
 
 
 Reports the set of lots that can be tax loss harvested from your beancount input file.
